@@ -20,8 +20,36 @@
       breakpointUnit: 'px',
       useragent: '',
       behaviour: 2,
-      disableHover: false
+      disableHover: false,
+      scrollbarWidth: 0,
+      scrollbarHeight: 0
     }, options);
+    // if we allow scrollbars, then set up the scrollbar width and height for 
+    // later calculation.
+    if (options.allowScrollbars){
+      if (!options.scrollbarWidth || !options.scrollbarHeight){
+        // create a hidden div inside a div, off of the body and use jquery to
+        // calculate the height and width of scroll bars.
+        var scrollBarMeasure = $('<div />');
+        $('body').append(scrollBarMeasure);
+        scrollBarMeasure.width(50).height(50)
+                        .css({
+                          overflow: 'scroll',
+                          visibility: 'hidden',
+                          position: 'absolute'
+                        });
+        var scrollBarMeasureContent = $('<div />').height('100%');
+        scrollBarMeasure.append(scrollBarMeasureContent);
+        var insideWidth = scrollBarMeasureContent.width();
+        var insideHeight = scrollBarMeasureContent.height();
+        var outsideWidth = scrollBarMeasure.width();
+        var outsideHeight = scrollBarMeasure.height();
+        scrollBarMeasure.remove();
+        // store results in the options.
+        options.scrollbarWidth = outsideWidth - insideWidth;
+        options.scrollbarHeight = outsideHeight - insideHeight;
+      }
+    }
 
     function activate(menu){
       var eventHandler = (('ontouchstart' in window) || (window.DocumentTouch && document instanceof DocumentTouch)) ? ['click touchstart','mouseup touchend'] : ['click','mouseup'];
@@ -71,6 +99,22 @@
 
       $(document).bind(eventHandler[1], function(event){
         if (menu.not(event.target) && menu.has(event.target).length === 0){
+          // If we allow scrollbars, then we might quit before getting to the 
+          // original code that simply closed all the superfish menus.
+          if (options.allowScrollbars) {
+            var $target = $(event.target);
+            // Use jquery scrollIntoView plugin to see if we have scrollbars.
+            var bScrollableX = $target.filter(":scrollable(x)").length;
+            var bScrollableY = $target.filter(":scrollable(y)").length;
+            // if we have an X (horizontal) scrollbar, and the event click 
+            // location is greater than the target height less the scrollbar 
+            // height, or vice versa for the more common Y (vertical) scrollbar
+            // regarding the width, then we know we're in a scrollbar.
+            if ((bScrollableX && event.offsetY > $target.height() - options.scrollbarHeight) || (bScrollableY && event.clientX > $target.width() - options.scrollbarWidth)) {
+              // stop processing the event.
+              return;
+            }
+          }
           menu.find('.sf-clicked').removeClass('sf-clicked');
           menu.find('li:has(ul)').hideSuperfishUl();
         }
